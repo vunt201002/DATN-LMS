@@ -38,7 +38,7 @@ export const isAutheticated = CatchAsyncError(
         );
       }
 
-      req.user = JSON.parse(user);
+        req.user = typeof user === 'string' ?  JSON.parse(user) : user;
 
       next();
     }

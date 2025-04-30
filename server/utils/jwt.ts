@@ -11,7 +11,7 @@ interface ITokenOptions {
   secure?: boolean;
 }
 
-// parse enviroment variables to integrates with fallback values
+// parse environment variables to integrates with fallback values
  const accessTokenExpire = parseInt(
   process.env.ACCESS_TOKEN_EXPIRE || "300",
   10
@@ -42,8 +42,10 @@ export const sendToken = (user: IUser, statusCode: number, res: Response) => {
   const accessToken = user.SignAccessToken();
   const refreshToken = user.SignRefreshToken();
 
+  const redisKey = user._id.toString();
+
   // upload session to redis
-  redis.set(user._id, JSON.stringify(user) as any,);
+  redis.setex(redisKey, 7 * 24 * 60 * 60, JSON.stringify(user)).then(() => {});
 
   res.cookie("access_token", accessToken, accessTokenOptions);
   res.cookie("refresh_token", refreshToken, refreshTokenOptions);
