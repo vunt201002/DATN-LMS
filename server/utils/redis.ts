@@ -1,12 +1,6 @@
-import {Redis} from 'ioredis';
-require('dotenv').config();
+import { Redis } from "@upstash/redis";
 
-const redisClient = () => {
-    if(process.env.REDIS_URL){
-        console.log(`Redis connected`);
-        return process.env.REDIS_URL;
-    }
-    throw new Error('Redis connection failed');
-};
-
-export const redis = new Redis(redisClient());
+export const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
