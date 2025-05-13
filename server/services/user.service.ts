@@ -8,11 +8,13 @@ export const getUserById = async (id: string, res: Response) => {
 
   if (userJson) {
     const user = typeof userJson === 'string' ?  JSON.parse(userJson) : userJson;
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       user,
     });
   }
+
+  return res.status(404).json({success: false, message: 'User not found'})
 };
 
 // Get All users
