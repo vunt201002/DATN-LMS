@@ -104,7 +104,11 @@ export const getSingleCourse = CatchAsyncError(
           "-courseData.videoUrl -courseData.suggestion -courseData.questions -courseData.links"
         );
 
-        await redis.set(courseId, JSON.stringify(course), "EX", 604800); // 7days
+        if (!course) {
+          return next(new ErrorHandler("Course not found", 404));
+        }
+
+        await redis.setex(courseId, 604800, JSON.stringify(course)); // 7days
 
         res.status(200).json({
           success: true,
