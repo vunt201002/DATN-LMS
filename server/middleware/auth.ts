@@ -2,12 +2,13 @@ import { Request, Response, NextFunction } from "express";
 import { CatchAsyncError } from "./catchAsyncErrors";
 import ErrorHandler from "../utils/ErrorHandler";
 import jwt, { JwtPayload } from "jsonwebtoken";
-import { redis } from "../utils/redis";
+import { redis, getAndParse } from "../utils/redis";
 import { updateAccessToken } from "../controllers/user.controller";
 
 // authenticated user
 export const isAutheticated = CatchAsyncError(
   async (req: Request, res: Response, next: NextFunction) => {
+    console.log("req.cookies", req.cookies);
     const access_token = req.cookies.access_token as string;
 
     if (!access_token) {
@@ -16,21 +17,17 @@ export const isAutheticated = CatchAsyncError(
       );
     }
 
-    const decoded = jwt.decode(access_token) as JwtPayload;
+    try {
+      const decoded = jwt.verify(
+        access_token,
+        process.env.ACCESS_TOKEN as string
+      ) as JwtPayload;
 
-    if (!decoded) {
-      return next(new ErrorHandler("access token is not valid", 400));
-    }
-
-    // check if the access token is expired
-    if (decoded.exp && decoded.exp <= Date.now() / 1000) {
-      try {
-        await updateAccessToken(req, res, next);
-      } catch (error) {
-        return next(error);
+      if (!decoded) {
+        return next(new ErrorHandler("access token is not valid", 400));
       }
-    } else {
-      const user = await redis.get(decoded.id);
+
+      const user = await getAndParse(decoded.id);
 
       if (!user) {
         return next(
@@ -38,9 +35,18 @@ export const isAutheticated = CatchAsyncError(
         );
       }
 
-        req.user = typeof user === 'string' ?  JSON.parse(user) : user;
-
+      req.user = user;
       next();
+    } catch (error) {
+      if (error instanceof jwt.TokenExpiredError) {
+        try {
+          await updateAccessToken(req, res, next);
+        } catch (error) {
+          return next(error);
+        }
+      } else {
+        return next(new ErrorHandler("Invalid access token", 400));
+      }
     }
   }
 );

@@ -12,7 +12,7 @@ import {
   refreshTokenOptions,
   sendToken,
 } from "../utils/jwt";
-import { redis } from "../utils/redis";
+import { redis, getAndParse, setWithExpiry } from "../utils/redis";
 import {
   getAllUsersService,
   getUserById,
@@ -210,7 +210,8 @@ export const updateAccessToken = CatchAsyncError(
       if (!decoded) {
         return next(new ErrorHandler(message, 400));
       }
-      const session = await redis.get(decoded.id as string);
+
+      const session = await getAndParse(decoded.id as string);
          
       if (!session) {
         return next(
@@ -218,7 +219,7 @@ export const updateAccessToken = CatchAsyncError(
         );
       }
       
-      const user = JSON.parse(session);
+      const user = session;
 
       const accessToken = jwt.sign(
         { id: user._id },
@@ -241,7 +242,7 @@ export const updateAccessToken = CatchAsyncError(
       res.cookie("access_token", accessToken, accessTokenOptions);
       res.cookie("refresh_token", refreshToken, refreshTokenOptions);
 
-      await redis.set(user._id, JSON.stringify(user), "EX", 604800); // 7days
+      await setWithExpiry(user._id, user, 7 * 24 * 60 * 60);
 
       return next();
     } catch (error: any) {
@@ -300,13 +301,17 @@ export const updateUserInfo = CatchAsyncError(
       const userId = req.user?._id;
       const user = await userModel.findById(userId);
 
-      if (name && user) {
+      if (!user) {
+        return next(new ErrorHandler("User not found", 404));
+      }
+
+      if (name) {
         user.name = name;
       }
 
-      await user?.save();
+      await user.save();
 
-      await redis.set(userId, JSON.stringify(user));
+      await setWithExpiry(userId, user);
 
       res.status(201).json({
         success: true,
